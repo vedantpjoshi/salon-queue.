@@ -1,7 +1,6 @@
 # Glamour Queue — Salon Queue Management System
 
 **Live demo:** [https://salon-queue-rnam.onrender.com](https://salon-queue-rnam.onrender.com)  
-**Staff Login PIN / Password:** `salon123`  
 **Hosted on:** Render Free + Supabase Free (PostgreSQL)  
 **Public source:** [GitHub repository](https://github.com/vedantpjoshi/salon-queue)  
 
