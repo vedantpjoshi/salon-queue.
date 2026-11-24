@@ -175,6 +175,10 @@ export async function initDB() {
         price INTEGER NOT NULL,
         duration INTEGER NOT NULL
       );
+      CREATE TABLE IF NOT EXISTS salon_settings (
+        id INTEGER PRIMARY KEY,
+        mode TEXT NOT NULL DEFAULT 'auto'
+      );
     `);
   } else {
     const SQL = await initSqlJs();
@@ -216,8 +220,14 @@ export async function initDB() {
         duration INTEGER NOT NULL,
         FOREIGN KEY (order_id) REFERENCES orders(id)
       );
+      CREATE TABLE IF NOT EXISTS salon_settings (
+        id INTEGER PRIMARY KEY,
+        mode TEXT NOT NULL DEFAULT 'auto'
+      );
     `);
   }
+
+  await database.exec("INSERT INTO salon_settings (id, mode) VALUES (1, 'auto') ON CONFLICT(id) DO NOTHING");
 
   if (database.isPostgres) {
     await database.exec('ALTER TABLE orders ADD COLUMN IF NOT EXISTS cancel_token TEXT');

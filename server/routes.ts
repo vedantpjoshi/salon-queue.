@@ -10,14 +10,20 @@ const VALID_TRANSITIONS: Record<string, string[]> = {
   Completed: ['CheckedOut'],
 };
 const MAX_QUANTITY = 5;
+type SalonMode = 'auto' | 'open' | 'closed';
 
-function isSalonOpen(): boolean {
+async function salonStatus(db: AppDatabase) {
+  const setting = await db.get<{ mode: SalonMode }>('SELECT mode FROM salon_settings WHERE id = 1');
+  const mode = setting?.mode ?? 'auto';
+  if (mode === 'open') return { isOpen: true, mode };
+  if (mode === 'closed') return { isOpen: false, mode };
+
   const parts = new Intl.DateTimeFormat('en-GB', {
     timeZone: 'Asia/Kolkata', hour: '2-digit', minute: '2-digit', hourCycle: 'h23',
   }).formatToParts(new Date());
   const hours = Number(parts.find((part) => part.type === 'hour')?.value);
   const minutes = Number(parts.find((part) => part.type === 'minute')?.value);
-  return !(hours < 9 || hours >= 20 || (hours === 19 && minutes >= 45));
+  return { isOpen: !(hours < 9 || hours >= 20 || (hours === 19 && minutes >= 45)), mode };
 }
 
 function todayFilter(db: AppDatabase, column: string) {
@@ -60,15 +66,38 @@ export function setupRoutes(app: Express, io: Server) {
   app.get('/api/health', async (_req: Request, res: Response) => {
     try {
       await getDB().get('SELECT 1 AS healthy');
-      res.json({ status: 'ok', salonOpen: isSalonOpen() });
+      res.json({ status: 'ok', salonOpen: (await salonStatus(getDB())).isOpen });
     } catch (err) {
       console.error('GET /api/health error:', err);
       res.status(503).json({ status: 'error', error: 'Database unavailable' });
     }
   });
 
-  app.get('/api/salon/status', (_req: Request, res: Response) => {
-    res.json({ isOpen: isSalonOpen() });
+  app.get('/api/salon/status', async (_req: Request, res: Response) => {
+    try {
+      res.json(await salonStatus(getDB()));
+    } catch (err) {
+      console.error('GET /api/salon/status error:', err);
+      res.status(500).json({ error: 'Failed to fetch salon status' });
+    }
+  });
+
+  app.patch('/api/admin/salon/status', requireAdmin, async (req: Request, res: Response) => {
+    const mode = req.body?.mode;
+    if (!['auto', 'open', 'closed'].includes(mode)) {
+      res.status(400).json({ error: 'Mode must be auto, open, or closed' });
+      return;
+    }
+    try {
+      const db = getDB();
+      await db.run('UPDATE salon_settings SET mode = ? WHERE id = 1', [mode]);
+      const status = await salonStatus(db);
+      io.emit('salon:status', status);
+      res.json(status);
+    } catch (err) {
+      console.error('PATCH /api/admin/salon/status error:', err);
+      res.status(500).json({ error: 'Failed to update salon status' });
+    }
   });
 
   app.get('/api/services', async (_req: Request, res: Response) => {
@@ -192,7 +221,7 @@ export function setupRoutes(app: Express, io: Server) {
       if (typeof customer_phone !== 'string' || !/^\d{10}$/.test(customer_phone.trim())) {
         res.status(400).json({ error: 'Valid 10-digit phone number is required' }); return;
       }
-      if (!isSalonOpen()) {
+      if (!(await salonStatus(db)).isOpen) {
         res.status(400).json({ error: 'Salon is closed. Bookings available 9 AM – 7:45 PM.' }); return;
       }
       if (!Array.isArray(items) || items.length === 0) {

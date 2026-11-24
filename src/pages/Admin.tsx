@@ -4,7 +4,7 @@ import {
 } from 'lucide-react';
 import {
   fetchServices, getAdminStats,
-  createService, updateService, deleteService as deleteServiceAPI,
+  createService, updateService, deleteService as deleteServiceAPI, setSalonMode,
 } from '../lib/api';
 import { socket } from '../lib/socket';
 import { Service, AdminStats } from '../lib/types';
@@ -31,6 +31,8 @@ export default function Admin() {
   const [form, setForm] = useState(empty);
   const [formErr, setFormErr] = useState('');
   const [saving, setSaving] = useState(false);
+  const [salonMode, setSalonModeState] = useState<'auto' | 'open' | 'closed'>('auto');
+  const [salonSaving, setSalonSaving] = useState(false);
 
   useEffect(() => {
     setLoading(true);
@@ -59,13 +61,28 @@ export default function Admin() {
 
   async function loadAll() {
     try {
-      const [s, st] = await Promise.all([fetchServices(), getAdminStats()]);
+      const [s, st, salon] = await Promise.all([
+        fetchServices(), getAdminStats(), fetch('/api/salon/status').then((response) => response.json()),
+      ]);
       setServices(s);
       setStats(st);
+      setSalonModeState(salon.mode || 'auto');
     } catch (err) {
       console.error(err);
     } finally {
       setLoading(false);
+    }
+  }
+
+  async function changeSalonMode(mode: 'auto' | 'open' | 'closed') {
+    setSalonSaving(true);
+    try {
+      const status = await setSalonMode(mode);
+      setSalonModeState(status.mode);
+    } catch (err: any) {
+      alert(err.message || 'Could not update salon status');
+    } finally {
+      setSalonSaving(false);
     }
   }
 
@@ -170,6 +187,28 @@ export default function Admin() {
             </h1>
           </div>
         </div>
+
+        <section className="mb-8 rounded-3xl border border-[#eee6f0] bg-white p-5 shadow-[0_4px_24px_rgba(73,49,87,0.04)] sm:p-6">
+          <div className="flex flex-wrap items-center justify-between gap-4">
+            <div>
+              <h2 className="font-serif text-xl font-bold text-[#34263e]">Salon status</h2>
+              <p className="mt-1 text-sm text-[#8c7892]">Open or close bookings manually, or return to the regular 9 AM–7:45 PM schedule.</p>
+            </div>
+            <div className="flex flex-wrap gap-2">
+              {([
+                ['open', 'Open now'], ['closed', 'Close bookings'], ['auto', 'Use schedule'],
+              ] as const).map(([mode, label]) => (
+                <button key={mode} disabled={salonSaving} onClick={() => changeSalonMode(mode)}
+                  className={`rounded-full px-4 py-2.5 text-xs font-bold transition disabled:opacity-50 ${salonMode === mode ? 'bg-[#6b4b8b] text-white' : 'border border-[#e7ddec] bg-white text-[#6b4b8b] hover:bg-[#f7f2f9]'}`}>
+                  {label}
+                </button>
+              ))}
+            </div>
+          </div>
+          <p className="mt-3 text-xs font-semibold text-[#765b80]">
+            {salonMode === 'auto' ? 'Following regular salon hours.' : salonMode === 'open' ? 'Bookings are manually open.' : 'Bookings are manually closed.'}
+          </p>
+        </section>
 
         {/* Stats */}
         {stats && (

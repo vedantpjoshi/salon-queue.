@@ -20,6 +20,8 @@ export const fetchServices = () => request('/services');
 export const getActiveOrders = () => request('/orders');
 export const getOrder = (id: number) => request(`/orders/${id}`);
 export const getAdminStats = () => request('/admin/stats');
+export const setSalonMode = (mode: 'auto' | 'open' | 'closed') =>
+  request('/admin/salon/status', { method: 'PATCH', body: JSON.stringify({ mode }) });
 export const getAdminSession = () => request('/admin/session');
 export const adminLogin = (password: string) => request('/admin/login', { method: 'POST', body: JSON.stringify({ password }) });
 export const adminLogout = () => request('/admin/logout', { method: 'POST' });

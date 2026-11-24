@@ -45,15 +45,18 @@ export default function Menu() {
       if (order.status === 'CheckedOut' || order.status === 'Cancelled') setOrders((previous) => previous.filter((item) => item.id !== order.id));
       else upsertOrder(order);
     };
+    const onSalonStatus = (status: { isOpen: boolean }) => setSalonOpen(status.isOpen);
     socket.on('service:updated', onUpdated);
     socket.on('service:created', onCreated);
     socket.on('service:deleted', onDeleted);
     socket.on('order:new', upsertOrder);
     socket.on('order:updated', onOrderUpdated);
+    socket.on('salon:status', onSalonStatus);
     return () => {
       socket.off('service:updated', onUpdated); socket.off('service:created', onCreated);
       socket.off('service:deleted', onDeleted); socket.off('order:new', upsertOrder);
       socket.off('order:updated', onOrderUpdated);
+      socket.off('salon:status', onSalonStatus);
     };
   }, []);
 
