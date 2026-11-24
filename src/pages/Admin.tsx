@@ -1,9 +1,9 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, type FormEvent } from 'react';
 import {
-  Plus, Edit2, Trash2, TrendingUp, Users, DollarSign, Star, X,
+  Plus, Edit2, Trash2, TrendingUp, Users, DollarSign, Star, X, LogOut,
 } from 'lucide-react';
 import {
-  fetchServices, getAdminStats,
+  fetchServices, getAdminStats, getAdminSession, adminLogin, adminLogout,
   createService, updateService, deleteService as deleteServiceAPI, setSalonMode,
 } from '../lib/api';
 import { socket } from '../lib/socket';
@@ -33,10 +33,16 @@ export default function Admin() {
   const [saving, setSaving] = useState(false);
   const [salonMode, setSalonModeState] = useState<'auto' | 'open' | 'closed'>('auto');
   const [salonSaving, setSalonSaving] = useState(false);
+  const [authenticated, setAuthenticated] = useState(false);
+  const [password, setPassword] = useState('');
+  const [authError, setAuthError] = useState('');
 
   useEffect(() => {
-    setLoading(true);
-    loadAll();
+    getAdminSession().then((session) => {
+      setAuthenticated(Boolean(session.authenticated));
+      if (session.authenticated) loadAll();
+      else setLoading(false);
+    }).catch(() => setLoading(false));
 
     const onC = (s: Service) =>
       setServices((p) => p.some((item) => item.id === s.id) ? p.map((item) => item.id === s.id ? s : item) : [...p, s]);
@@ -58,6 +64,27 @@ export default function Admin() {
       socket.off('order:updated', refresh);
     };
   }, []);
+
+  async function handleLogin(event: FormEvent<HTMLFormElement>) {
+    event.preventDefault();
+    setAuthError('');
+    try {
+      await adminLogin(password);
+      setPassword('');
+      setAuthenticated(true);
+      setLoading(true);
+      await loadAll();
+    } catch (err: any) {
+      setAuthError(err.message || 'Could not sign in');
+    }
+  }
+
+  async function handleLogout() {
+    await adminLogout();
+    setAuthenticated(false);
+    setServices([]);
+    setStats(null);
+  }
 
   async function loadAll() {
     try {
@@ -174,6 +201,27 @@ export default function Admin() {
     );
   }
 
+  if (!authenticated) {
+    return (
+      <div className="min-h-screen bg-[#fffdfb] text-[#34263e]">
+        <Navbar />
+        <main className="mx-auto flex min-h-[75vh] max-w-md items-center px-4 py-12">
+          <form onSubmit={handleLogin} className="w-full rounded-3xl border border-[#eee6f0] bg-white p-7 shadow-[0_4px_24px_rgba(73,49,87,0.06)] sm:p-9">
+            <p className="text-xs font-bold uppercase tracking-[0.18em] text-[#9879a3]">Glamour Queue · Staff</p>
+            <h1 className="mt-2 font-serif text-3xl font-bold">Admin sign in</h1>
+            <p className="mt-2 text-sm text-[#8c7892]">Sign in to manage salon hours and services.</p>
+            <label htmlFor="admin-password" className="mt-6 block text-sm font-semibold">Staff password</label>
+            <input id="admin-password" type="password" autoComplete="current-password" required value={password}
+              onChange={(event) => setPassword(event.target.value)}
+              className="mt-2 min-h-12 w-full rounded-2xl border border-[#e7ddec] px-4 outline-none focus:border-[#9879a3] focus:ring-2 focus:ring-[#9879a3]/20" />
+            {authError && <p role="alert" className="mt-3 text-sm font-medium text-rose-700">{authError}</p>}
+            <button type="submit" className="mt-5 min-h-12 w-full rounded-full bg-[#6b4b8b] px-5 text-sm font-bold text-white hover:bg-[#563872]">Sign in</button>
+          </form>
+        </main>
+      </div>
+    );
+  }
+
   return (
     <div className="min-h-screen bg-[#fffdfb] text-[#34263e]">
       <Navbar />
@@ -186,6 +234,9 @@ export default function Admin() {
               Admin & Service Studio
             </h1>
           </div>
+          <button onClick={handleLogout} className="inline-flex items-center gap-2 rounded-full border border-[#e7ddec] px-4 py-2.5 text-xs font-bold text-[#6b4b8b] hover:bg-[#f7f2f9]">
+            <LogOut className="h-4 w-4" /> Sign out
+          </button>
         </div>
 
         <section className="mb-8 rounded-3xl border border-[#eee6f0] bg-white p-5 shadow-[0_4px_24px_rgba(73,49,87,0.04)] sm:p-6">
