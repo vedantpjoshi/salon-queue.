@@ -2,7 +2,8 @@
 
 **Live demo:** [https://salon-queue-rnam.onrender.com](https://salon-queue-rnam.onrender.com)  
 **Hosted on:** Render Free + Supabase Free (PostgreSQL)  
-**Admin Password:** M7rK-4vQp-9xT2-Lc8N-z5Ws
+**Admin Password:** M7rK-4vQp-9xT2-Lc8N-z5Ws 
+
 **Public source:** [GitHub repository](https://github.com/vedantpjoshi/salon-queue)  
 
 ---
